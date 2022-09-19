@@ -1,0 +1,9 @@
+version: '3'
+
+services:
+  next:
+    build:
+      context: .
+    container_name: next
+    ports:
+      - 3000:3000
