@@ -1,25 +1,7 @@
 import { useRouter } from 'next/router';
-import { MutableRefObject, useEffect, useRef, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { useEffect, useRef, useState } from 'react';
+import { io } from 'socket.io-client';
 import useSocket from '../../hooks/useSocket';
-interface ServerToClientEvents {
-  noArg: () => void;
-  basicEmit: (a: number, b: string, c: Buffer) => void;
-  withAck: (d: string, callback: (e: number) => void) => void;
-}
-
-interface ClientToServerEvents {
-  hello: () => void;
-}
-
-interface InterServerEvents {
-  ping: () => void;
-}
-
-interface SocketData {
-  name: string;
-  age: number;
-}
 
 const ICE_SERVERS = {
   iceServers: [
@@ -74,7 +56,7 @@ const Room = () => {
   const handleRoomJoined = () => {
     navigator.mediaDevices
       .getUserMedia({
-        audio: true,
+        audio: false,
         video: { width: 500, height: 500 },
       })
       .then((stream) => {
@@ -98,7 +80,7 @@ const Room = () => {
     hostRef.current = true;
     navigator.mediaDevices
       .getUserMedia({
-        audio: true,
+        audio: false,
         video: { width: 500, height: 500 },
       })
       .then((stream) => {
@@ -235,10 +217,10 @@ const Room = () => {
     });
   };
 
-  const toggleMic = () => {
-    toggleMediaStream('audio', micActive);
-    setMicActive((prev) => !prev);
-  };
+  // const toggleMic = () => {
+  //   toggleMediaStream('audio', micActive);
+  //   setMicActive((prev) => !prev);
+  // };
 
   const toggleCamera = () => {
     toggleMediaStream('video', cameraActive);
@@ -271,9 +253,9 @@ const Room = () => {
     <div>
       <video autoPlay ref={userVideoRef} />
       <video autoPlay ref={peerVideoRef} />
-      <button onClick={toggleMic} type="button">
+      {/* <button onClick={toggleMic} type="button">
         {micActive ? 'Mute Mic' : 'UnMute Mic'}
-      </button>
+      </button> */}
       <button onClick={leaveRoom} type="button">
         Leave
       </button>
