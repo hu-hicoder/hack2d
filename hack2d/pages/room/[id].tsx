@@ -1,6 +1,7 @@
 import { useRouter } from 'next/router';
-import { createRef, RefObject, useEffect, useRef, useState } from 'react';
+import { createRef, forwardRef, RefObject, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
+import Video from '../../component/Video';
 import useSocket from '../../hooks/useSocket';
 
 const ICE_SERVERS = {
@@ -10,6 +11,11 @@ const ICE_SERVERS = {
     }
   ],
 };
+
+type Meta = {
+  id: string,
+  srcObject: MediaStream
+}
 
 const Room = () => {
   useSocket();
@@ -24,12 +30,13 @@ const Room = () => {
   // const userStreamRef: any = useRef();
   // const hostRef = useRef(false);
   const { id: roomName } = router.query;
-  const [remoteVideos, setRemoteVideos] = useState<any>([]);
+  const [remoteVideos, setRemoteVideos] = useState<Meta[]>([]);
+  const [a, setA] = useState<{ id: number }[]>([{id: 890}])
   let peerConnections: any = [];
   let localStream: any = null;
   const MAX_CONNECTIONS = 8;
   const localVideoRef: any = useRef(null);
-  const videoRef: any = useRef(null);
+  // const videoRef: any = useRef(null);
 
   function messageToRoom(message: any) {
     socketRef.current.emit('message', message);
@@ -91,19 +98,23 @@ const Room = () => {
 
   function attachRemoteVideo(id: string, stream: MediaStream) {
     console.log('[attachRemoteVideo]', stream);
-    videoRef.current.width = 160;
-    videoRef.current.height = 120;
-    videoRef.current.id = `video-tag-${id}`;
-    videoRef.current.srcObject = stream;
-    videoRef.current.onloadedmetadata = () => {
-      videoRef.current.play();
-    };
-    console.log('[attachRemoteVideo] ', videoRef.current.srcObject);
-    setRemoteVideos([...remoteVideos, videoRef])
+    const metadata = {
+      id: `video-tag-${id}`,
+      srcObject: stream
+    }
+    console.log('[attachRemoteVideo]', metadata)
+    console.log('[attachRemoteVideo]::before', remoteVideos)
+    setRemoteVideos([...remoteVideos, metadata])
+    console.log('[attachRemoteVideo]::after', remoteVideos)
   }
   function isRemoteVideoAttached(id: string) {
     console.log('[isRemoteVideoAttached]', remoteVideos, id)
-    return remoteVideos[id]!==undefined ? true : false;
+    remoteVideos.forEach(e => {
+      Object.keys(e).forEach(key => {
+        if (key === id) return true;
+      })
+    })
+    return false;
   }
   function messageToOne(id: string, message: any) {
     message.sendto = id;
@@ -335,7 +346,7 @@ const Room = () => {
       },
       audio: false
     })
-      .then(function (stream:any) {
+      .then(function (stream: any) {
         localStream = stream;
         localVideoRef.current.srcObject = stream;
         localVideoRef.current.onloadedmetadata = () => {
@@ -353,7 +364,7 @@ const Room = () => {
     if (localStream == null) {
       return;
     }
-    localStream.getTracks().forEach((track:any) => {
+    localStream.getTracks().forEach((track: any) => {
       track.stop();
     })
     localStream = null;
@@ -375,27 +386,31 @@ const Room = () => {
   }
 
   return (
-    <div>
-      <div id="main-container">
-        <button onClick={() => startVideo()} className="outlined-button">Start</button>
-        <button onClick={() => stopVideo()} className="outlined-button">Stop</button>
-        <button type="button" onClick={() => connect()} className="outlined-button">Connect</button>
-        <button type="button" onClick={() => hangUp()} className="outlined-button">Hang Up</button>
-        <section className="video">
-          <video id="local-video" autoPlay ref={localVideoRef}></video>
-          <video id="local-video-x" autoPlay ref={videoRef}></video>
-          <div id="remote-videos">
-            {
-              remoteVideos.map((vRef: any) => {
-                console.log('[remoteVideo in DOM] ', vRef.current)
-                return <video key={vRef.id} autoPlay ref={vRef}></video>
-              })
-            }
-          </div>
-        </section>
+    <>
+      {
+        console.log(remoteVideos.length)}
+      <div>
+        <div id="main-container">
+          <button onClick={() => startVideo()} className="outlined-button">Start</button>
+          <button onClick={() => stopVideo()} className="outlined-button">Stop</button>
+          <button type="button" onClick={connect} className="outlined-button">Connect</button>
+          <button type="button" onClick={() => hangUp()} className="outlined-button">Hang Up</button>
+          <button type="button" onClick={() => setA([...a, { id: 123 }])} className="outlined-button">Test { a[a.length-1].id }</button>
+          <section className="video">
+            <video id="local-video" autoPlay ref={localVideoRef}></video>
+            {/* <video id="local-video-x" autoPlay ref={videoRef}></video> */}
+            <div id="remote-videos">
+              {
+                remoteVideos.map((metadata: any) => {
+                  console.log('[remoteVideo in DOM] ', metadata)
+                  return (<Video props={metadata}></Video>)
+                })
+              }
+            </div>
+          </section>
+        </div>
       </div>
-    </div>
-  );
+    </>);
 };
 
 export default Room;
