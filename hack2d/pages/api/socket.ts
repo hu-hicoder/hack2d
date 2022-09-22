@@ -30,7 +30,7 @@ const SocketHandler = (req: any, res: any) => {
 
     socket.on('message', function (message: any) {
       message.from = socket.id;
-
+      console.log('[message] ',message.from,' -> ', message.sendto, ' : ', message.type)
       let target = message.sendto;
       if (target) {
         // 特定の相手に送る場合.
@@ -49,55 +49,6 @@ const SocketHandler = (req: any, res: any) => {
         socket.leave(socket.roomname);
       }
     });
-
-  //   // Triggered when a peer hits the join room button.
-  //   socket.on("join", (roomName) => {
-  //     const { rooms } = io.sockets.adapter;
-  //     const room = rooms.get(roomName);
-
-  //     // room == undefined when no such room exists.
-  //     if (room === undefined) {
-  //       socket.join(roomName);
-  //       socket.emit("created");
-  //     } else {
-  //       // room.size >= 1 when one person is inside the room.
-  //       socket.join(roomName);
-  //       socket.emit("joined");
-  //     }
-  //     console.log(rooms);
-  //   });
-
-  //   // Triggered when the person who joined the room is ready to communicate.
-  //   socket.on("ready", (roomName) => {
-  //     socket.broadcast.to(roomName).emit("ready"); // Informs the other peer in the room.
-  //   });
-
-  //   // Triggered when server gets an icecandidate from a peer in the room.
-  //   socket.on("ice-candidate", (candidate: RTCIceCandidate, roomName: string) => {
-  //     console.log(candidate);
-  //     socket.broadcast.to(roomName).emit("ice-candidate", candidate); // Sends Candidate to the other peer in the room.
-  //   });
-
-  //   // Triggered when server gets an offer from a peer in the room.
-  //   socket.on("offer", (offer, roomName) => {
-  //     socket.broadcast.to(roomName).emit("offer", offer); // Sends Offer to the other peer in the room.
-  //   });
-
-  //   // Triggered when server gets an answer from a peer in the room.
-  //   socket.on("answer", (answer, roomName) => {
-  //     socket.broadcast.to(roomName).emit("answer", answer); // Sends Answer to the other peer in the room.
-  //   });
-
-  //   socket.on("leave", (roomName) => {
-  //     socket.leave(roomName);
-  //     socket.broadcast.to(roomName).emit("leave");
-  //   });
-  //   // socket.on("getIds", (roomName) => {
-  //   //   const { rooms } = io.sockets.adapter;
-  //   //   const room = rooms.get(roomName);
-  //   //   console.log('emit', Array.from(room!))
-  //   //   socket.broadcast.to(roomName).emit("sendIds",Array.from(room!))
-  //   // })
   });
   return res.end();
 };

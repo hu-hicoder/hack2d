@@ -29,11 +29,13 @@ const Room = () => {
   let localStream: any = null;
   const MAX_CONNECTIONS = 8;
   const localVideoRef: any = useRef(null);
+  const videoRef: any = useRef(null);
 
   function messageToRoom(message: any) {
     socketRef.current.emit('message', message);
   }
   function callMe() {
+    console.log('[callMe]')
     messageToRoom({ type: 'call me' });
   }
   function getConnectionCount() {
@@ -62,6 +64,7 @@ const Room = () => {
   function sendSdp(id: string, sessionDescription: any) {
     // sending server.
     let message = { type: sessionDescription.type, sdp: sessionDescription.sdp };
+    console.log('[sendSdp]', id, message)
     messageToOne(id, message);
   }
   function makeAnswer(id: string) {
@@ -85,26 +88,22 @@ const Room = () => {
         console.log(error);
       });
   }
-  function createVideoElement(id: string) {
-    let videoRef: any = useRef(null);
+
+  function attachRemoteVideo(id: string, stream: MediaStream) {
+    console.log('[attachRemoteVideo]', stream);
     videoRef.current.width = 160;
     videoRef.current.height = 120;
     videoRef.current.id = `video-tag-${id}`;
-
-    setRemoteVideos([...remoteVideos, videoRef])
-
-    return videoRef;
-  }
-
-  function attachRemoteVideo(id: string, stream: any) {
-    const userVideoRef = createVideoElement(id)
-    userVideoRef.current.srcObject = stream;
-    userVideoRef.current.onloadedmetadata = () => {
-      userVideoRef.current.play();
+    videoRef.current.srcObject = stream;
+    videoRef.current.onloadedmetadata = () => {
+      videoRef.current.play();
     };
+    console.log('[attachRemoteVideo] ', videoRef.current.srcObject);
+    setRemoteVideos([...remoteVideos, videoRef])
   }
   function isRemoteVideoAttached(id: string) {
-    return remoteVideos[id]===undefined ? true : false;
+    console.log('[isRemoteVideoAttached]', remoteVideos, id)
+    return remoteVideos[id]!==undefined ? true : false;
   }
   function messageToOne(id: string, message: any) {
     message.sendto = id;
@@ -124,11 +123,12 @@ const Room = () => {
     if ('ontrack' in peer) {
       console.log('-- ontrack');
       peer.ontrack = function (event) {
+        console.log('[peer.ontrack]');
         if (isRemoteVideoAttached(id)) {
           // video と audioで２回届くので２回目を無視する.
           console.log('already stream attached.')
         } else {
-          console.log('[prepareNewConnection] attachRemoteVideo')
+          console.log('[prepareNewConnection] attachRemoteVideo', event)
           let stream = event.streams[0];
           attachRemoteVideo(id, stream);
         }
@@ -142,6 +142,7 @@ const Room = () => {
     }
 
     peer.onicecandidate = function (event) {
+      console.log('[peer.onicecandidate] ', event)
       if (event.candidate) {
         // Trickle ICE > ICE candidateを送る.
         sendIceCandidate(id, event.candidate);
@@ -154,6 +155,22 @@ const Room = () => {
         //sendSdp(id, peer.localDescription);
       }
     }
+
+    peer.oniceconnectionstatechange = function () {
+      switch (peer.iceConnectionState) {
+        case 'closed':
+        case 'failed':
+          stopConnection(id);
+          break;
+        case 'disconnected':
+          break;
+      }
+    };
+
+    // localStreamの追加.
+    localStream.getTracks().forEach((track: any) => {
+      peer.addTrack(track, localStream);
+    })
 
     return peer;
   }
@@ -298,7 +315,7 @@ const Room = () => {
           break;
         case 'bye':
           console.log('--- bye from ' + from);
-          // stopConnection(from);
+          stopConnection(from);
           break;
       }
     });
@@ -324,7 +341,7 @@ const Room = () => {
         localVideoRef.current.onloadedmetadata = () => {
           localVideoRef.current.play();
         };
-        console.log(stream.getAudioTracks()[0].getSettings());
+        console.log('[startVideo] ', stream.getTracks()[0].getSettings());
         return localVideoRef;
       }).catch(function (error) {
         console.error('mediaDevice.getUserMedia() error:', error);
@@ -336,9 +353,9 @@ const Room = () => {
     if (localStream == null) {
       return;
     }
-    for (let track of localStream.getTracks()) {
+    localStream.getTracks().forEach((track:any) => {
       track.stop();
-    }
+    })
     localStream = null;
 
     // kill local video.
@@ -347,6 +364,7 @@ const Room = () => {
   }
 
   function connect() {
+    console.log('[connect] ', remoteVideos);
     if (!isReadyToConnect()) {
       return;
     }
@@ -355,202 +373,6 @@ const Room = () => {
     }
     callMe();
   }
-  // const handleRoomJoined = () => {
-  //   navigator.mediaDevices
-  //     .getUserMedia({
-  //       audio: false,
-  //       video: { width: 500, height: 500 },
-  //     })
-  //     .then((stream) => {
-  //       /* use the stream */
-  //       userStreamRef.current = stream;
-  //       userVideoRef.current.srcObject = stream;
-  //       userVideoRef.current.onloadedmetadata = () => {
-  //         userVideoRef.current.play();
-  //       };
-  //       socketRef.current.emit('ready', roomName);
-  //     })
-  //     .catch((err) => {
-  //       /* handle the error */
-  //       console.log('error', err);
-  //     });
-  // };
-
-
-
-  // const handleRoomCreated = () => {
-  //   hostRef.current = true;
-  //   navigator.mediaDevices
-  //     .getUserMedia({
-  //       audio: false,
-  //       video: { width: 500, height: 500 },
-  //     })
-  //     .then((stream) => {
-  //       /* use the stream */
-  //       userStreamRef.current = stream;
-  //       userVideoRef.current.srcObject = stream;
-  //       userVideoRef.current.onloadedmetadata = () => {
-  //         userVideoRef.current.play();
-  //       };
-  //     })
-  //     .catch((err) => {
-  //       /* handle the error */
-  //       console.log(err);
-  //     });
-  // };
-
-  // const initiateCall = () => {
-  //   if (hostRef.current) {
-  //     rtcConnectionRef.current = createPeerConnection();
-  //     rtcConnectionRef.current.addTrack(
-  //       userStreamRef.current.getTracks()[0],
-  //       userStreamRef.current,
-  //     );
-  //     rtcConnectionRef.current.addTrack(
-  //       userStreamRef.current.getTracks()[1],
-  //       userStreamRef.current,
-  //     );
-  //     rtcConnectionRef.current
-  //       .createOffer()
-  //       .then((offer: any) => {
-  //         rtcConnectionRef.current.setLocalDescription(offer);
-  //         socketRef.current.emit('offer', offer, roomName);
-  //       })
-  //       .catch((error: any) => {
-  //         console.log(error);
-  //       });
-  //   }
-  // };
-
-  // const onPeerLeave = () => {
-  //   // This person is now the creator because they are the only person in the room.
-  //   hostRef.current = true;
-  //   if (peerVideoRef.current.srcObject) {
-  //     peerVideoRef.current.srcObject
-  //       .getTracks()
-  //       .forEach((track: any) => track.stop()); // Stops receiving all track of Peer.
-  //   }
-
-  //   // Safely closes the existing connection established with the peer who left.
-  //   if (rtcConnectionRef.current) {
-  //     rtcConnectionRef.current.ontrack = null;
-  //     rtcConnectionRef.current.onicecandidate = null;
-  //     rtcConnectionRef.current.close();
-  //     rtcConnectionRef.current = null;
-  //   }
-  // }
-
-  // /**
-  //  * Takes a userid which is also the socketid and returns a WebRTC Peer
-  //  *
-  //  * @param  {string} userId Represents who will receive the offer
-  //  * @returns {RTCPeerConnection} peer
-  //  */
-
-  // const createPeerConnection = () => {
-  //   // We create a RTC Peer Connection
-  //   const connection = new RTCPeerConnection(ICE_SERVERS);
-
-  //   // We implement our onicecandidate method for when we received a ICE candidate from the STUN server
-  //   connection.onicecandidate = handleICECandidateEvent;
-
-  //   // We implement our onTrack method for when we receive tracks
-  //   connection.ontrack = handleTrackEvent;
-  //   return connection;
-
-  // };
-
-  // const handleReceivedOffer = (offer: any) => {
-  //   if (!hostRef.current) {
-  //     rtcConnectionRef.current = createPeerConnection();
-  //     rtcConnectionRef.current.addTrack(
-  //       userStreamRef.current.getTracks()[0],
-  //       userStreamRef.current,
-  //     );
-  //     rtcConnectionRef.current.addTrack(
-  //       userStreamRef.current.getTracks()[1],
-  //       userStreamRef.current,
-  //     );
-  //     rtcConnectionRef.current.setRemoteDescription(offer);
-
-  //     rtcConnectionRef.current
-  //       .createAnswer()
-  //       .then((answer: any) => {
-  //         rtcConnectionRef.current.setLocalDescription(answer);
-  //         socketRef.current.emit('answer', answer, roomName);
-  //       })
-  //       .catch((error: any) => {
-  //         console.log(error);
-  //       });
-  //   }
-  // };
-
-  // const handleAnswer = (answer: any) => {
-  //   rtcConnectionRef.current
-  //     .setRemoteDescription(answer)
-  //     .catch((err: any) => console.log(err));
-  // };
-
-  // const handleICECandidateEvent = (event: any) => {
-  //   if (event.candidate) {
-  //     socketRef.current.emit('ice-candidate', event.candidate, roomName);
-  //   }
-  // };
-
-  // const handlerNewIceCandidateMsg = (incoming: any) => {
-  //   // We cast the incoming candidate to RTCIceCandidate
-  //   const candidate = new RTCIceCandidate(incoming);
-  //   console.log(candidate);
-  //   rtcConnectionRef.current
-  //     .addIceCandidate(candidate)
-  //     .catch((e: any) => console.log(e));
-  // };
-
-  // const handleTrackEvent = (event: any) => {
-  //   // eslint-disable-next-line prefer-destructuring
-  //   peerVideoRef.current.srcObject = event.streams[0];
-  // };
-
-  // const toggleMediaStream = (type: any, state: any) => {
-  //   userStreamRef.current.getTracks().forEach((track: any) => {
-  //     if (track.kind === type) {
-  //       // eslint-disable-next-line no-param-reassign
-  //       track.enabled = !state;
-  //     }
-  //   });
-  // };
-
-  // // const toggleMic = () => {
-  // //   toggleMediaStream('audio', micActive);
-  // //   setMicActive((prev) => !prev);
-  // // };
-
-  // const toggleCamera = () => {
-  //   toggleMediaStream('video', cameraActive);
-  //   setCameraActive((prev) => !prev);
-  // };
-
-  // const leaveRoom = () => {
-  //   socketRef.current.emit('leave', roomName); // Let's the server know that user has left the room.
-
-  //   if (userVideoRef.current.srcObject) {
-  //     userVideoRef.current.srcObject.getTracks().forEach((track: any) => track.stop()); // Stops receiving all track of User.
-  //   }
-  //   if (peerVideoRef.current.srcObject) {
-  //     peerVideoRef.current.srcObject
-  //       .getTracks()
-  //       .forEach((track: any) => track.stop()); // Stops receiving audio track of Peer.
-  //   }
-
-  //   // Checks if there is peer on the other side and safely closes the existing connection established with the peer.
-  //   if (rtcConnectionRef.current) {
-  //     rtcConnectionRef.current.ontrack = null;
-  //     rtcConnectionRef.current.onicecandidate = null;
-  //     rtcConnectionRef.current.close();
-  //     rtcConnectionRef.current = null;
-  //   }
-  //   router.push('/')
-  // };
 
   return (
     <div>
@@ -561,10 +383,12 @@ const Room = () => {
         <button type="button" onClick={() => hangUp()} className="outlined-button">Hang Up</button>
         <section className="video">
           <video id="local-video" autoPlay ref={localVideoRef}></video>
+          <video id="local-video-x" autoPlay ref={videoRef}></video>
           <div id="remote-videos">
             {
               remoteVideos.map((vRef: any) => {
-                return <video autoPlay ref={vRef}></video>
+                console.log('[remoteVideo in DOM] ', vRef.current)
+                return <video key={vRef.id} autoPlay ref={vRef}></video>
               })
             }
           </div>
