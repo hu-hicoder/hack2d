@@ -21,22 +21,17 @@ const Room = () => {
   useSocket();
 
   const router = useRouter();
-  // const userVideoRef: any = useRef();
-  // const peerVideoRef: any = useRef();
-  // const remotes = useRef([])
-  // const remoteVideoRef = useRef<RefObject<HTMLVideoElement | null>[]>(null);
-  // const rtcConnectionRef: any = useRef(null);
   const socketRef: any = useRef();
-  // const userStreamRef: any = useRef();
-  // const hostRef = useRef(false);
   const { id: roomName } = router.query;
-  const [remoteVideos, setRemoteVideos] = useState<Meta[]>([]);
-  const [a, setA] = useState<{ id: number }[]>([{id: 890}])
+  // const [remoteVideos, setRemoteVideos] = useState<Meta[]>([]);
+  // const [remotes,setRemotes] = useState(0);
+  const remoteVideos = useRef<Meta[]>([]);
+  remoteVideos.current = [];
+  const [remotes, setRemotes] = useState(remoteVideos.current);
   let peerConnections: any = [];
   let localStream: any = null;
   const MAX_CONNECTIONS = 8;
   const localVideoRef: any = useRef(null);
-  // const videoRef: any = useRef(null);
 
   function messageToRoom(message: any) {
     socketRef.current.emit('message', message);
@@ -103,13 +98,17 @@ const Room = () => {
       srcObject: stream
     }
     console.log('[attachRemoteVideo]', metadata)
-    console.log('[attachRemoteVideo]::before', remoteVideos)
-    setRemoteVideos([...remoteVideos, metadata])
-    console.log('[attachRemoteVideo]::after', remoteVideos)
+    console.log('[attachRemoteVideo]::before', remoteVideos.current)
+    // setRemotes(prev => prev+1)
+    remoteVideos.current.push(metadata)
+    console.log('attachRemoteVideo::[array] = ', [...remotes, metadata])
+    setRemotes(prev => { return [...prev, metadata] });
+    console.log('[attachRemoteVideo]::after', remoteVideos.current)
+    // console.log('[attachRemoteVideo]::[remotes]', remotes)
   }
   function isRemoteVideoAttached(id: string) {
-    console.log('[isRemoteVideoAttached]', remoteVideos, id)
-    remoteVideos.forEach(e => {
+    console.log('[isRemoteVideoAttached]', remoteVideos.current, id)
+    remoteVideos.current.forEach(e => {
       Object.keys(e).forEach(key => {
         if (key === id) return true;
       })
@@ -375,7 +374,7 @@ const Room = () => {
   }
 
   function connect() {
-    console.log('[connect] ', remoteVideos);
+    console.log('[connect] ', remoteVideos.current);
     if (!isReadyToConnect()) {
       return;
     }
@@ -387,23 +386,29 @@ const Room = () => {
 
   return (
     <>
-      {
-        console.log(remoteVideos.length)}
+      {console.log('[remoteVideos] = ',remoteVideos)}
+      {console.log('[remotes] = ',remotes)}
       <div>
         <div id="main-container">
           <button onClick={() => startVideo()} className="outlined-button">Start</button>
           <button onClick={() => stopVideo()} className="outlined-button">Stop</button>
           <button type="button" onClick={connect} className="outlined-button">Connect</button>
           <button type="button" onClick={() => hangUp()} className="outlined-button">Hang Up</button>
-          <button type="button" onClick={() => setA([...a, { id: 123 }])} className="outlined-button">Test { a[a.length-1].id }</button>
+          {/* <button type="button" onClick={() => setRemotes(p => p+1)} className="outlined-button">Test {remotes}</button> */}
           <section className="video">
             <video id="local-video" autoPlay ref={localVideoRef}></video>
             {/* <video id="local-video-x" autoPlay ref={videoRef}></video> */}
             <div id="remote-videos">
               {
-                remoteVideos.map((metadata: any) => {
-                  console.log('[remoteVideo in DOM] ', metadata)
-                  return (<Video props={metadata}></Video>)
+                remoteVideos.current.map(meta => {
+                  return <Video props={meta}></Video>
+                })
+              }
+            </div>
+            <div id="remote-videos-remotes">
+              {
+                remotes.map(meta => {
+                  return <Video props={meta}></Video>
                 })
               }
             </div>
