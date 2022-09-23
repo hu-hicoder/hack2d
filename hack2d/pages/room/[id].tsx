@@ -1,13 +1,11 @@
 import { useRouter } from 'next/router';
 import { io } from 'socket.io-client';
-import Video from '../../component/Video';
 import RemoteVideo from '../../component/RemoteVideo';
 import useSocket from '../../hooks/useSocket';
 import type { Meta, PeerConnection } from '../../types/type';
 import { useCallback, useEffect, useState, useRef } from "react";
 import { Camera } from "@mediapipe/camera_utils";
 import { Hands, Results } from "@mediapipe/hands";
-// import { drawCanvas } from "../utils/drawCanvas";
 import {
   detectFingerPose,
   FingerTypes,
@@ -58,7 +56,7 @@ const Room = () => {
   }
 
   function addConnection(id: string, peer: RTCPeerConnection) {
-    peerConnections.current.push({id, peer});
+    peerConnections.current.push({ id, peer });
   }
 
   function getConnection(id: string): RTCPeerConnection | null {
@@ -80,20 +78,20 @@ const Room = () => {
     let peerConnection = getConnection(id);
     if (peerConnection !== null) {
       let rtcPeerConnection: RTCPeerConnection = peerConnection
-    rtcPeerConnection.createAnswer()
-      .then(function (sessionDescription: any) {
-        console.log('createAnswer() succsess in promise');
-        return rtcPeerConnection.setLocalDescription(sessionDescription);
-      }).then(function () {
-        console.log('setLocalDescription() succsess in promise');
+      rtcPeerConnection.createAnswer()
+        .then(function (sessionDescription: any) {
+          console.log('createAnswer() succsess in promise');
+          return rtcPeerConnection.setLocalDescription(sessionDescription);
+        }).then(function () {
+          console.log('setLocalDescription() succsess in promise');
 
-        // Trickle ICE > 初期SDPを送る.
-        sendSdp(id, rtcPeerConnection.localDescription);
+          // Trickle ICE > 初期SDPを送る.
+          sendSdp(id, rtcPeerConnection.localDescription);
 
-        // Vanilla ICE > まだSDPを送らない.
-      }).catch(function (error: any) {
-        console.log(error);
-      });
+          // Vanilla ICE > まだSDPを送らない.
+        }).catch(function (error: any) {
+          console.log(error);
+        });
     }
   }
 
@@ -351,7 +349,7 @@ const Room = () => {
 
         if (streamAudioDest.current) {
 
-          console.log('add_tracks',streamAudioDest.current.stream.getAudioTracks().length)
+          console.log('add_tracks', streamAudioDest.current.stream.getAudioTracks().length)
           streamAudioDest.current.stream.getAudioTracks().forEach((track: MediaStreamTrack) => {
             localStream.current!.addTrack(track);
           })
@@ -375,10 +373,10 @@ const Room = () => {
 
 
 
-  
 
 
-    // video
+
+  // video
   // audio
   const audioCtx = useRef<AudioContext | null>(null);
   const streamAudioDest = useRef<MediaStreamAudioDestinationNode | null>(null);
@@ -390,7 +388,7 @@ const Room = () => {
   const resultsRef = useRef<Results | null>(null);
 
   const createOscillator = (fingerType: FingerType) => {
-    if (audioCtx.current &&streamAudioDest.current) {
+    if (audioCtx.current && streamAudioDest.current) {
       oscillator.current = audioCtx.current.createOscillator();
       oscillator.current.type = "sine";
       oscillator.current.frequency.value =
@@ -402,7 +400,7 @@ const Room = () => {
   };
   const deleteOscillator = () => {
     if (oscillator.current) {
-      if (audioCtx.current &&streamAudioDest.current) {
+      if (audioCtx.current && streamAudioDest.current) {
         oscillator.current.stop();
         oscillator.current.disconnect(audioCtx.current.destination);
         oscillator.current.disconnect(streamAudioDest.current)
@@ -465,14 +463,14 @@ const Room = () => {
   }, []);
 
   useEffect(() => {
-          // Init audio
-          audioCtx.current = new AudioContext();
-          streamAudioDest.current = audioCtx.current.createMediaStreamDestination()
-          if (audioCtx.current.state === 'suspended') {
-            audioCtx.current.resume().then(() => {
-              console.log('音声の再生を開始しました')
-            })
-          }
+    // Init audio
+    audioCtx.current = new AudioContext();
+    streamAudioDest.current = audioCtx.current.createMediaStreamDestination()
+    if (audioCtx.current.state === 'suspended') {
+      audioCtx.current.resume().then(() => {
+        console.log('音声の再生を開始しました')
+      })
+    }
   }, []);
 
   useEffect(() => {
@@ -516,11 +514,14 @@ const Room = () => {
   return (
     <>
       <div>
-        <div id="main-container">
-          <button type="button" onClick={connect} className="outlined-button">Connect</button>
+        <div id="main-container" style={{ display: 'flex', flexFlow: 'column', textAlign: 'center' }}>
+          <h1 style={{ paddingTop: '1em' }}>hack2d</h1>
+          <div>
+            <button style={{ fontSize: '1.2em' }} type="button" onClick={connect}>Connect</button>
+          </div>
           <section className="video">
             <video
-              style={{ width: '240px', height: '200px' }}
+              style={{ width: '480px', height: '400px' }}
               ref={videoRef}
               autoPlay
               playsInline

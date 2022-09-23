@@ -21,12 +21,12 @@ export default function Home() {
       </Head>
 
       <main className={styles.main}>
-        <h1>Lets join hack2d room!</h1>
+        <h1 style={{fontSize: '2em'}}>ようこそ hack2d へ！</h1>
         <form onSubmit={joinRoom}>
           <label>
-            <input type='text' placeholder='hack2d' onChange={(e: any) => setRoomName(e.target.value)} value={roomName} className={styles['room-name']} />
+            <input style={{fontSize: '1.2em'}} type='text' placeholder='hack2d' onChange={(e: any) => setRoomName(e.target.value)} value={roomName} className={styles['room-name']} />
           </label>
-          <input type="submit" value='参加'/>
+          <input style={{ fontSize: '1.2em' }} type="submit" value='参加'/>
         </form>
       </main>
     </div>

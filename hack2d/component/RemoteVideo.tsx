@@ -29,8 +29,6 @@ const RemoteVideo = (props: { meta: Meta }) => {
         autoPlay
         playsInline
       />
-
-      <div>{props.meta.srcObject && props.meta.srcObject.getAudioTracks().length}</div>
     </>
   )
 }
