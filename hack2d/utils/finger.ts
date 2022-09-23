@@ -20,12 +20,29 @@ export type FingerType = typeof FingerTypes[keyof typeof FingerTypes];
 export const AllFingerType = Object.values(FingerTypes);
 
 export const getPitch = (fingerType: FingerType): number | null => {
-  for (let index = 8; 0 <= index; index--) {
-    if (AllFingerType[index] === fingerType) {
-      return index;
-    }
+  switch (fingerType) {
+    case FingerTypes.ONE:
+      return 0;
+    case FingerTypes.TWO:
+      return 2;
+    case FingerTypes.THREE:
+      return 4;
+    case FingerTypes.FOUR:
+      return 5;
+    case FingerTypes.FIVE:
+      return 7;
+    case FingerTypes.SIX:
+      return 9;
+    case FingerTypes.SEVEN:
+      return 11;
+    case FingerTypes.EIGHT:
+      return 12;
+    case FingerTypes.NINE:
+      return 14;
+    case FingerTypes.REST:
+    case FingerTypes.REPEAT:
+      return null;
   }
-  return null;
 };
 
 export function calcAngle(
