@@ -276,7 +276,7 @@ const Room = () => {
   }
 
   function stopConnection(id: string) {
-    setRemotes(prev => prev.filter((remote) => (remote.id !== id)))
+    setRemotes(remotes.filter((remote) => remote.id !== id))
     deleteConnection(id)
   }
 
