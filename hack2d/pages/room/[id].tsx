@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import { createRef, forwardRef, RefObject, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import Video from '../../component/Video';
 import useSocket from '../../hooks/useSocket';
@@ -12,9 +12,14 @@ const ICE_SERVERS = {
   ],
 };
 
-type Meta = {
+export type Meta = {
   id: string,
   srcObject: MediaStream
+}
+
+export type PeerConnection = {
+  id: string,
+  peer: RTCPeerConnection
 }
 
 const Room = () => {
@@ -24,8 +29,8 @@ const Room = () => {
   const socketRef: any = useRef();
   const { id: roomName } = router.query;
   const [remotes, setRemotes] = useState<Meta[]>([]);
-  let peerConnections: any = [];
-  let localStream: any = null;
+  const peerConnections = useRef<PeerConnection[]>([]);
+  let localStream = useRef<MediaStream | null>(null);
   const MAX_CONNECTIONS = 8;
   const localVideoRef: any = useRef(null);
 
@@ -37,7 +42,7 @@ const Room = () => {
     messageToRoom({ type: 'call me' });
   }
   function getConnectionCount() {
-    return peerConnections.length;
+    return peerConnections.current.length;
   }
 
   function canConnect() {
@@ -45,20 +50,26 @@ const Room = () => {
   }
 
   function isConnected(id: string) {
-    return peerConnections[id] ? true : false;
-  }
-
-  function addConnection(id: string, peer: any) {
-    peerConnections[id] = peer;
-  }
-
-  function getConnection(id: string) {
-    if (isConnected(id)) {
-      return peerConnections[id];
-    } else {
-      return null;
+    console.log('[isConnected] peer = ', peerConnections.current, ' id = ', id)
+    for (const peer of peerConnections.current) {
+      if (peer.id === id) return true;
     }
+    return false;
   }
+
+  function addConnection(id: string, peer: RTCPeerConnection) {
+    peerConnections.current.push({id, peer});
+  }
+
+  function getConnection(id: string): RTCPeerConnection | null {
+    if (isConnected(id)) {
+      for (const peer of peerConnections.current) {
+        if (peer.id === id) return peer.peer;
+      }
+    }
+    return null;
+  }
+
   function sendSdp(id: string, sessionDescription: any) {
     // sending server.
     let message = { type: sessionDescription.type, sdp: sessionDescription.sdp };
@@ -67,24 +78,23 @@ const Room = () => {
   }
   function makeAnswer(id: string) {
     let peerConnection = getConnection(id);
-    if (!peerConnection) {
-      return;
-    }
-
-    peerConnection.createAnswer()
+    if (peerConnection !== null) {
+      let rtcPeerConnection: RTCPeerConnection = peerConnection
+    rtcPeerConnection.createAnswer()
       .then(function (sessionDescription: any) {
         console.log('createAnswer() succsess in promise');
-        return peerConnection.setLocalDescription(sessionDescription);
+        return rtcPeerConnection.setLocalDescription(sessionDescription);
       }).then(function () {
         console.log('setLocalDescription() succsess in promise');
 
         // Trickle ICE > 初期SDPを送る.
-        sendSdp(id, peerConnection.localDescription);
+        sendSdp(id, rtcPeerConnection.localDescription);
 
         // Vanilla ICE > まだSDPを送らない.
       }).catch(function (error: any) {
         console.log(error);
       });
+    }
   }
 
   function attachRemoteVideo(id: string, stream: MediaStream) {
@@ -98,11 +108,9 @@ const Room = () => {
     setRemotes(prev => { return [...prev, metadata] });
   }
   function isRemoteVideoAttached(id: string) {
-    remotes.forEach(e => {
-      Object.keys(e).forEach(key => {
-        if (key === id) return true;
-      })
-    })
+    for (const remote of remotes) {
+      if (remote.id === id) return true;
+    }
     return false;
   }
   function messageToOne(id: string, message: any) {
@@ -168,9 +176,11 @@ const Room = () => {
     };
 
     // localStreamの追加.
-    localStream.getTracks().forEach((track: any) => {
-      peer.addTrack(track, localStream);
-    })
+    if (localStream.current !== null) {
+      localStream.current.getTracks().forEach((track: any) => {
+        peer.addTrack(track, localStream.current!);
+      })
+    }
 
     return peer;
   }
@@ -231,9 +241,9 @@ const Room = () => {
       });
   }
   function isReadyToConnect() {
-    return localStream ? true : false;
+    return localStream.current ? true : false;
   }
-  function startConnection(from: any) {
+  function startConnection(from: string) {
     if (!isReadyToConnect()) {
       console.log('Not ready connecting.');
       return;
@@ -251,31 +261,23 @@ const Room = () => {
   function deleteConnection(id: string) {
     if (isConnected(id)) {
       let peer = getConnection(id);
+      if (peer === null) {
+        console.error('[deleteConnection] not found peer, id: ', id);
+        return
+      }
       peer.close();
-      delete peerConnections[id];
-    }
-  }
-  function detachRemoteVideo(id: string) {
-    // let remoteVideo = getRemoteVideoElement(id);
-    // if (remoteVideo) {
-    //   remoteVideo.pause();
-    //   remoteVideo.srcObject = null;
-    //   deleteRemoteVideoElement(id);
-    // }
-  }
-  function stopConnection(id: string) {
-    detachRemoteVideo(id);
-    deleteConnection(id);
-  }
-  function stopAllConnection() {
-    for (let id in peerConnections) {
-      stopConnection(id);
+      peerConnections.current.forEach((peer, index) => {
+        if (peer.id === id) {
+          peerConnections.current.splice(0, index);
+          return;
+        }
+      })
     }
   }
 
-  function hangUp() {
-    messageToRoom({ type: 'bye' });
-    stopAllConnection();
+  function stopConnection(id: string) {
+    setRemotes(prev => prev.filter((remote) => (remote.id !== id)))
+    deleteConnection(id)
   }
 
   useEffect(() => {
@@ -313,55 +315,15 @@ const Room = () => {
           console.log('--- call me from ' + from);
           startConnection(from);
           break;
-        case 'bye':
-          console.log('--- bye from ' + from);
-          stopConnection(from);
-          break;
       }
     });
 
     socketRef.current.on('user disconnected', (event: any) => {
-      // stopConnection(event.id);
+      stopConnection(event.id);
     });
     // clear up after
     return () => socketRef.current.disconnect();
   }, [roomName]);
-
-  function startVideo() {
-    navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { min: 320, ideal: 640 },
-        height: { min: 240, ideal: 480 }
-      },
-      audio: false
-    })
-      .then(function (stream: any) {
-        localStream = stream;
-        localVideoRef.current.srcObject = stream;
-        localVideoRef.current.onloadedmetadata = () => {
-          localVideoRef.current.play();
-        };
-        console.log('[startVideo] ', stream.getTracks()[0].getSettings());
-        return localVideoRef;
-      }).catch(function (error) {
-        console.error('mediaDevice.getUserMedia() error:', error);
-        return;
-      });
-  }
-
-  function stopVideo() {
-    if (localStream == null) {
-      return;
-    }
-    localStream.getTracks().forEach((track: any) => {
-      track.stop();
-    })
-    localStream = null;
-
-    // kill local video.
-    localVideoRef.current.pause();
-    localVideoRef.current.srcObject = null;
-  }
 
   function connect() {
     navigator.mediaDevices.getUserMedia({
@@ -371,8 +333,8 @@ const Room = () => {
       },
       audio: false
     })
-      .then(function (stream: any) {
-        localStream = stream;
+      .then(function (stream) {
+        localStream.current = stream;
         localVideoRef.current.srcObject = stream;
         localVideoRef.current.onloadedmetadata = () => {
           localVideoRef.current.play();
@@ -397,14 +359,12 @@ const Room = () => {
       <div>
         <div id="main-container">
           <button type="button" onClick={connect} className="outlined-button">Connect</button>
-          <button onClick={() => stopVideo()} className="outlined-button">Stop</button>
-          <button type="button" onClick={() => hangUp()} className="outlined-button">Hang Up</button>
           <section className="video">
             <video id="local-video" autoPlay ref={localVideoRef}></video>
-            <div id="remote-videos-remotes">
+            <div id="remote-videos">
               {
                 remotes.map(meta => {
-                  return <Video props={meta}></Video>
+                  return <Video key={meta.id} props={meta}></Video>
                 })
               }
             </div>
