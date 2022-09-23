@@ -129,20 +129,6 @@ const Video = (props: {meta: Meta}) => {
     }
   }, [onResults]);
 
-  // return (
-  //   <div className="App">
-  //     <video ref={videoRef} />
-  //     <canvas ref={canvasRef} />
-  //     <div>
-  //       {resultsRef.current
-  //         ? resultsRef.current.multiHandLandmarks.map((landmarks) =>
-  //           detectFingerPose(landmarks)
-  //         )
-  //         : null}
-  //     </div>
-  //   </div>
-  // );
-
   const videoRef = useRef<HTMLVideoElement | null>(null)
   console.log('[Video Component]', props);
   useEffect(() => {
