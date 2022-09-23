@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import Video from '../../component/Video';
 import useSocket from '../../hooks/useSocket';
+import type { Meta, PeerConnection } from '../../types/type';
 
 const ICE_SERVERS = {
   iceServers: [
@@ -11,16 +12,6 @@ const ICE_SERVERS = {
     }
   ],
 };
-
-export type Meta = {
-  id: string,
-  srcObject: MediaStream
-}
-
-export type PeerConnection = {
-  id: string,
-  peer: RTCPeerConnection
-}
 
 const Room = () => {
   useSocket();
@@ -32,7 +23,6 @@ const Room = () => {
   const peerConnections = useRef<PeerConnection[]>([]);
   let localStream = useRef<MediaStream | null>(null);
   const MAX_CONNECTIONS = 8;
-  const localVideoRef: any = useRef(null);
 
   function messageToRoom(message: any) {
     socketRef.current.emit('message', message);
@@ -333,14 +323,12 @@ const Room = () => {
       },
       audio: false
     })
-      .then(function (stream) {
+      .then(function (stream: MediaStream) {
         localStream.current = stream;
-        localVideoRef.current.srcObject = stream;
-        localVideoRef.current.onloadedmetadata = () => {
-          localVideoRef.current.play();
-        };
+        // setRemotes(prev => [...prev,  {id: 'local-video', srcObject: stream }])
         console.log('[startVideo] ', stream.getTracks()[0].getSettings());
         console.log('[connect] ', remotes);
+        console.log('[connect] ', localStream);
         if (!isReadyToConnect()) {
           return;
         }
@@ -360,11 +348,14 @@ const Room = () => {
         <div id="main-container">
           <button type="button" onClick={connect} className="outlined-button">Connect</button>
           <section className="video">
-            <video id="local-video" autoPlay ref={localVideoRef}></video>
+            {/* {
+              localStream.current ? <Video meta={{}></Video> : null
+            }
+             */}
             <div id="remote-videos">
               {
                 remotes.map(meta => {
-                  return <Video key={meta.id} props={meta}></Video>
+                  return <Video key={meta.id} meta={meta}></Video>
                 })
               }
             </div>

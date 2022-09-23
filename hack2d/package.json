@@ -13,7 +13,10 @@
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "socket.io": "^4.5.2",
-    "socket.io-client": "^4.5.2"
+    "socket.io-client": "^4.5.2",
+    "@mediapipe/camera_utils": "^0.3.1640029074",
+    "@mediapipe/drawing_utils": "^0.3.1620248257",
+    "@mediapipe/hands": "^0.4.1646424915"
   },
   "devDependencies": {
     "@types/node": "18.7.18",
