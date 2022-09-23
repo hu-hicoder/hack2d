@@ -23,11 +23,7 @@ const Room = () => {
   const router = useRouter();
   const socketRef: any = useRef();
   const { id: roomName } = router.query;
-  // const [remoteVideos, setRemoteVideos] = useState<Meta[]>([]);
-  // const [remotes,setRemotes] = useState(0);
-  const remoteVideos = useRef<Meta[]>([]);
-  remoteVideos.current = [];
-  const [remotes, setRemotes] = useState(remoteVideos.current);
+  const [remotes, setRemotes] = useState<Meta[]>([]);
   let peerConnections: any = [];
   let localStream: any = null;
   const MAX_CONNECTIONS = 8;
@@ -98,17 +94,11 @@ const Room = () => {
       srcObject: stream
     }
     console.log('[attachRemoteVideo]', metadata)
-    console.log('[attachRemoteVideo]::before', remoteVideos.current)
-    // setRemotes(prev => prev+1)
-    remoteVideos.current.push(metadata)
     console.log('attachRemoteVideo::[array] = ', [...remotes, metadata])
     setRemotes(prev => { return [...prev, metadata] });
-    console.log('[attachRemoteVideo]::after', remoteVideos.current)
-    // console.log('[attachRemoteVideo]::[remotes]', remotes)
   }
   function isRemoteVideoAttached(id: string) {
-    console.log('[isRemoteVideoAttached]', remoteVideos.current, id)
-    remoteVideos.current.forEach(e => {
+    remotes.forEach(e => {
       Object.keys(e).forEach(key => {
         if (key === id) return true;
       })
@@ -374,37 +364,43 @@ const Room = () => {
   }
 
   function connect() {
-    console.log('[connect] ', remoteVideos.current);
-    if (!isReadyToConnect()) {
-      return;
-    }
-    if (!canConnect()) {
-      return;
-    }
-    callMe();
+    navigator.mediaDevices.getUserMedia({
+      video: {
+        width: { min: 320, ideal: 640 },
+        height: { min: 240, ideal: 480 }
+      },
+      audio: false
+    })
+      .then(function (stream: any) {
+        localStream = stream;
+        localVideoRef.current.srcObject = stream;
+        localVideoRef.current.onloadedmetadata = () => {
+          localVideoRef.current.play();
+        };
+        console.log('[startVideo] ', stream.getTracks()[0].getSettings());
+        console.log('[connect] ', remotes);
+        if (!isReadyToConnect()) {
+          return;
+        }
+        if (!canConnect()) {
+          return;
+        }
+        callMe();
+      }).catch(function (error) {
+        console.error('mediaDevice.getUserMedia() error:', error);
+      });
   }
 
   return (
     <>
-      {console.log('[remoteVideos] = ',remoteVideos)}
-      {console.log('[remotes] = ',remotes)}
+      {console.log('[remotes] = ', remotes)}
       <div>
         <div id="main-container">
-          <button onClick={() => startVideo()} className="outlined-button">Start</button>
-          <button onClick={() => stopVideo()} className="outlined-button">Stop</button>
           <button type="button" onClick={connect} className="outlined-button">Connect</button>
+          <button onClick={() => stopVideo()} className="outlined-button">Stop</button>
           <button type="button" onClick={() => hangUp()} className="outlined-button">Hang Up</button>
-          {/* <button type="button" onClick={() => setRemotes(p => p+1)} className="outlined-button">Test {remotes}</button> */}
           <section className="video">
             <video id="local-video" autoPlay ref={localVideoRef}></video>
-            {/* <video id="local-video-x" autoPlay ref={videoRef}></video> */}
-            <div id="remote-videos">
-              {
-                remoteVideos.current.map(meta => {
-                  return <Video props={meta}></Video>
-                })
-              }
-            </div>
             <div id="remote-videos-remotes">
               {
                 remotes.map(meta => {
