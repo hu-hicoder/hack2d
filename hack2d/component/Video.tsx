@@ -116,9 +116,10 @@ const Video = (props: {meta: Meta}) => {
     hands.onResults(onResults);
 
     if (
-      typeof videoRef.current !== "undefined" &&
+      typeof videoRef.current !== undefined &&
       videoRef.current !== null
     ) {
+      console.log('[Video.tsx] videoRef.current = ', videoRef.current)
       const camera = new Camera(videoRef.current, {
         onFrame: async () => {
           await hands.send({ image: videoRef.current! });
@@ -147,13 +148,14 @@ const Video = (props: {meta: Meta}) => {
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.srcObject = props.meta.srcObject;
+      videoRef.current.play().catch((e) => console.log(e));
     }
   }, [])
 
   return (
     <>
       <video
-        style={{ width: '120px', height: '100px' }}
+        style={{ width: '240px', height: '200px' }}
         ref={videoRef}
         id={props.meta.id}
         autoPlay

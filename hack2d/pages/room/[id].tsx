@@ -2,6 +2,7 @@ import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import Video from '../../component/Video';
+import RemoteVideo from '../../component/RemoteVideo';
 import useSocket from '../../hooks/useSocket';
 import type { Meta, PeerConnection } from '../../types/type';
 
@@ -170,6 +171,7 @@ const Room = () => {
       localStream.current.getTracks().forEach((track: any) => {
         peer.addTrack(track, localStream.current!);
       })
+      // peer.addTrack(audioTrack)
     }
 
     return peer;
@@ -266,7 +268,7 @@ const Room = () => {
   }
 
   function stopConnection(id: string) {
-    setRemotes(remotes.filter((remote) => remote.id !== id))
+    setRemotes(prev => prev.filter((remote) => remote.id !== id))
     deleteConnection(id)
   }
 
@@ -325,10 +327,9 @@ const Room = () => {
     })
       .then(function (stream: MediaStream) {
         localStream.current = stream;
-        // setRemotes(prev => [...prev,  {id: 'local-video', srcObject: stream }])
         console.log('[startVideo] ', stream.getTracks()[0].getSettings());
-        console.log('[connect] ', remotes);
-        console.log('[connect] ', localStream);
+        console.log('[connect] remotes = ', remotes);
+        console.log('[connect] localStream.current = ', localStream.current);
         if (!isReadyToConnect()) {
           return;
         }
@@ -343,19 +344,15 @@ const Room = () => {
 
   return (
     <>
-      {console.log('[remotes] = ', remotes)}
       <div>
         <div id="main-container">
           <button type="button" onClick={connect} className="outlined-button">Connect</button>
           <section className="video">
-            {/* {
-              localStream.current ? <Video meta={{}></Video> : null
-            }
-             */}
+            <Video></Video>
             <div id="remote-videos">
               {
                 remotes.map(meta => {
-                  return <Video key={meta.id} meta={meta}></Video>
+                  return <RemoteVideo key={meta.id} meta={meta}></RemoteVideo>
                 })
               }
             </div>
