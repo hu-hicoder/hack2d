@@ -1,10 +1,19 @@
 import { useRouter } from 'next/router';
-import { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import Video from '../../component/Video';
 import RemoteVideo from '../../component/RemoteVideo';
 import useSocket from '../../hooks/useSocket';
 import type { Meta, PeerConnection } from '../../types/type';
+import { useCallback, useEffect, useState, useRef } from "react";
+import { Camera } from "@mediapipe/camera_utils";
+import { Hands, Results } from "@mediapipe/hands";
+// import { drawCanvas } from "../utils/drawCanvas";
+import {
+  detectFingerPose,
+  FingerTypes,
+  FingerType,
+  getPitch,
+} from "../../utils/finger";
 
 const ICE_SERVERS = {
   iceServers: [
@@ -96,9 +105,15 @@ const Room = () => {
     }
     console.log('[attachRemoteVideo]', metadata)
     console.log('attachRemoteVideo::[array] = ', [...remotes, metadata])
-    setRemotes(prev => { return [...prev, metadata] });
+    setRemotes(prev => {
+      for (const meta of prev) {
+        if (meta.id === metadata.id) return prev;
+      }
+      return [...prev, metadata];
+    });
   }
   function isRemoteVideoAttached(id: string) {
+    console.log('[isRemoteVideoAttached]', remotes, id);
     for (const remote of remotes) {
       if (remote.id === id) return true;
     }
@@ -171,7 +186,12 @@ const Room = () => {
       localStream.current.getTracks().forEach((track: any) => {
         peer.addTrack(track, localStream.current!);
       })
-      // peer.addTrack(audioTrack)
+      // if (streamAudioDest.current) {
+      //   console.log('add_tracks',streamAudioDest.current.stream.getAudioTracks().length)
+      //   streamAudioDest.current.stream.getAudioTracks().forEach((track: MediaStreamTrack) => {
+      //     peer.addTrack(track, streamAudioDest.current!.stream);
+      //   })
+      // }
     }
 
     return peer;
@@ -268,6 +288,7 @@ const Room = () => {
   }
 
   function stopConnection(id: string) {
+    console.log('[stopConnection]', id);
     setRemotes(prev => prev.filter((remote) => remote.id !== id))
     deleteConnection(id)
   }
@@ -327,6 +348,15 @@ const Room = () => {
     })
       .then(function (stream: MediaStream) {
         localStream.current = stream;
+
+        if (streamAudioDest.current) {
+
+          console.log('add_tracks',streamAudioDest.current.stream.getAudioTracks().length)
+          streamAudioDest.current.stream.getAudioTracks().forEach((track: MediaStreamTrack) => {
+            localStream.current!.addTrack(track);
+          })
+        }
+
         console.log('[startVideo] ', stream.getTracks()[0].getSettings());
         console.log('[connect] remotes = ', remotes);
         console.log('[connect] localStream.current = ', localStream.current);
@@ -342,13 +372,159 @@ const Room = () => {
       });
   }
 
+
+
+
+  
+
+
+    // video
+  // audio
+  const audioCtx = useRef<AudioContext | null>(null);
+  const streamAudioDest = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const oscillator = useRef<OscillatorNode | null>(null);
+  const prevFinger = useRef<FingerType>(FingerTypes.REST);
+  const prevNote = useRef<FingerType>(FingerTypes.ONE);
+  const isAttacked = useRef<Boolean>(false);
+
+  const resultsRef = useRef<Results | null>(null);
+
+  const createOscillator = (fingerType: FingerType) => {
+    if (audioCtx.current &&streamAudioDest.current) {
+      oscillator.current = audioCtx.current.createOscillator();
+      oscillator.current.type = "sine";
+      oscillator.current.frequency.value =
+        440 * Math.pow(2, getPitch(fingerType)! / 12);
+      oscillator.current.connect(audioCtx.current.destination);
+      oscillator.current.connect(streamAudioDest.current)
+      oscillator.current.start();
+    }
+  };
+  const deleteOscillator = () => {
+    if (oscillator.current) {
+      if (audioCtx.current &&streamAudioDest.current) {
+        oscillator.current.stop();
+        oscillator.current.disconnect(audioCtx.current.destination);
+        oscillator.current.disconnect(streamAudioDest.current)
+        oscillator.current = null;
+      }
+    }
+  };
+
+  const onResults = useCallback((results: Results) => {
+    resultsRef.current = results;
+
+    // Audio
+    if (results.multiHandLandmarks) {
+      for (const landmarks of results.multiHandLandmarks) {
+        const fingerType = detectFingerPose(landmarks);
+
+        const setNote = (fingerType: FingerType) => {
+          deleteOscillator();
+          createOscillator(fingerType);
+          prevNote.current = fingerType;
+          isAttacked.current = true;
+        };
+
+        if (fingerType !== prevFinger.current) {
+          isAttacked.current = false;
+        }
+        prevFinger.current = fingerType;
+
+        switch (fingerType) {
+          case FingerTypes.REST:
+            if (oscillator.current !== null) {
+              deleteOscillator();
+            }
+            break;
+          case FingerTypes.ONE:
+          case FingerTypes.TWO:
+          case FingerTypes.THREE:
+          case FingerTypes.FOUR:
+          case FingerTypes.FIVE:
+          case FingerTypes.SIX:
+          case FingerTypes.SEVEN:
+          case FingerTypes.EIGHT:
+          case FingerTypes.NINE:
+            if (!isAttacked.current) {
+              setNote(fingerType);
+            }
+            break;
+          case FingerTypes.REPEAT:
+            if (!isAttacked.current) {
+              setNote(prevNote.current);
+            }
+            break;
+          default:
+            break;
+        }
+
+        console.log(fingerType);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+          // Init audio
+          audioCtx.current = new AudioContext();
+          streamAudioDest.current = audioCtx.current.createMediaStreamDestination()
+          if (audioCtx.current.state === 'suspended') {
+            audioCtx.current.resume().then(() => {
+              console.log('音声の再生を開始しました')
+            })
+          }
+  }, []);
+
+  useEffect(() => {
+    const hands = new Hands({
+      locateFile: (file) => {
+        return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+      },
+    });
+
+    hands.setOptions({
+      maxNumHands: 2,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.7,
+      minTrackingConfidence: 0.5,
+    });
+
+    hands.onResults(onResults);
+
+    if (
+      typeof videoRef.current !== undefined &&
+      videoRef.current !== null
+    ) {
+      console.log('[Video.tsx] videoRef.current = ', videoRef.current)
+      const camera = new Camera(videoRef.current, {
+        onFrame: async () => {
+          await hands.send({ image: videoRef.current! });
+        },
+      });
+      camera.start();
+    }
+  }, [onResults]);
+
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.srcObject = localStream.current;
+      videoRef.current.play().catch((e) => console.log(e));
+    }
+  }, [])
+
   return (
     <>
       <div>
         <div id="main-container">
           <button type="button" onClick={connect} className="outlined-button">Connect</button>
           <section className="video">
-            <Video></Video>
+            <video
+              style={{ width: '240px', height: '200px' }}
+              ref={videoRef}
+              autoPlay
+              playsInline
+            />
             <div id="remote-videos">
               {
                 remotes.map(meta => {
